@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>如期而至</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">⏰</div>
+          <div>
+            <h1>如期而至</h1>
+            <p class="sub">会员 · 保险 · 合同 · 证件，到期不漏接</p>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="num" id="statTotal">0</span><span class="lbl">总事件</span></div>
+          <div class="stat warn"><span class="num" id="statSoon">0</span><span class="lbl">即将到期</span></div>
+          <div class="stat danger"><span class="num" id="statOver">0</span><span class="lbl">已过期</span></div>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div class="search">
+          <input id="searchInput" type="text" placeholder="搜索标题 / 备注…" />
+        </div>
+        <select id="filterCategory" class="select"></select>
+        <div class="spacer"></div>
+        <button id="btnTest" class="btn ghost">测试通知</button>
+        <button id="btnImport" class="btn ghost">导入</button>
+        <button id="btnExport" class="btn ghost">导出</button>
+        <button id="btnAdd" class="btn primary">+ 新增事件</button>
+      </div>
+
+      <main class="list" id="list"></main>
+
+      <div class="empty" id="empty" hidden>
+        <div class="empty-icon">📭</div>
+        <p>还没有任何事件</p>
+        <button id="btnAddEmpty" class="btn primary">添加第一个事件</button>
+      </div>
+    </div>
+
+    <!-- 新增 / 编辑 弹窗 -->
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="modalTitle">新增事件</h2>
+          <button class="icon-btn" id="modalClose">✕</button>
+        </div>
+        <form id="eventForm" class="form">
+          <label>标题 <span class="req">*</span>
+            <input id="fTitle" type="text" maxlength="60" placeholder="例如：视频网站会员续费" required />
+          </label>
+          <label>分类
+            <input id="fCategory" type="text" list="catList" maxlength="12" placeholder="选择或输入自定义分类" />
+            <datalist id="catList"></datalist>
+          </label>
+          <label>到期日 <span class="req">*</span>
+            <input id="fDue" type="date" required />
+          </label>
+          <label>提前提醒（天）
+            <input id="fRemind" type="number" min="0" max="365" value="7" />
+          </label>
+          <label>备注
+            <textarea id="fNote" rows="3" maxlength="200" placeholder="可选，例如：自动续费，记得取消"></textarea>
+          </label>
+          <div class="form-actions">
+            <button type="button" class="btn ghost" id="btnCancel">取消</button>
+            <button type="submit" class="btn primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

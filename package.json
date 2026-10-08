@@ -1,0 +1,16 @@
+{
+  "name": "ruqi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "如期而至 - 到期时间提醒助手（会员/保险/合同等），跨平台桌面应用",
+  "license": "MIT",
+  "author": "Ruqi Contributors",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icon": "tauri icon src-tauri/icon-source.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

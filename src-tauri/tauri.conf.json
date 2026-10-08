@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "如期而至",
+  "version": "0.1.0",
+  "identifier": "com.ruqierzhi",
+  "build": {
+    "frontendDist": "../src",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "python3 -m http.server 3000 --directory src",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "如期而至",
+        "width": 1040,
+        "height": 720,
+        "minWidth": 820,
+        "minHeight": 560,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "如期而至 - 到期时间提醒助手",
+    "longDescription": "如期而至帮你管理会员、保险、合同、证件、账单、订阅等一切会到期的事件，并在到期前按时弹出系统级通知提醒，关掉窗口也不漏接。"
+  },
+  "plugins": {}
+}
