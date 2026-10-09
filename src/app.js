@@ -694,13 +694,6 @@
       toast("导入完成，共 " + events.length + " 条", "ok");
     } catch (_) {}
   });
-  $("btnTest").addEventListener("click", async () => {
-    try {
-      await call("test_notify");
-      toast("已发送测试通知，请查看系统通知", "ok");
-    } catch (_) {}
-  });
-
   // ---------- 启动 ----------
   async function boot() {
     try {

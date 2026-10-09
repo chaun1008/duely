@@ -202,16 +202,6 @@ async fn export_events(
     Ok(path)
 }
 
-#[tauri::command]
-fn test_notify(app: AppHandle) {
-    let _ = app
-        .notification()
-        .builder()
-        .title("如期而至")
-        .body("这是一条测试通知，说明系统通知已正常工作。")
-        .show();
-}
-
 /// 续订（循环模式）：从当前到期日往后推一个周期。
 /// 若已过期多期，逐期推进到未来最近一期，避免连点补登过期期数。
 /// 成功后重置 notified_at，让新周期从头开始正常提醒。
@@ -394,8 +384,7 @@ fn main() {
             export_events,
             get_categories,
             save_categories,
-            renew_event,
-            test_notify
+            renew_event
         ])
         .build(tauri::generate_context!())
         .expect("构建 Tauri 应用失败")
