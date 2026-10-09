@@ -3,101 +3,299 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>如期而至</title>
+    <title data-i18n="app_title">如期而至</title>
+    <script>
+      // 首帧前应用主题，避免浅色模式下闪深色（发布版走 tauri:// 同样生效）。
+      // 偏好可能是 "system"：必须在这一帧就解析成 dark/light 再写 dataset，
+      // 否则 dataset.theme="system" 匹配不到任何 [data-theme] 规则，首帧会闪默认配色。
+      (function () {
+        var pref = localStorage.getItem("rq-theme") || "dark";
+        var resolved = pref === "system"
+          ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : pref;
+        document.documentElement.dataset.theme = resolved;
+      })();
+    </script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="topbar">
-        <div class="brand">
-          <div class="logo">⏰</div>
-          <div>
-            <h1>如期而至</h1>
-            <p class="sub">会员 · 保险 · 合同 · 证件，到期不漏接</p>
-          </div>
-        </div>
-        <div class="stats">
-          <div class="stat"><span class="num" id="statTotal">0</span><span class="lbl">总事件</span></div>
-          <div class="stat warn"><span class="num" id="statSoon">0</span><span class="lbl">即将到期</span></div>
-          <div class="stat danger"><span class="num" id="statOver">0</span><span class="lbl">已过期</span></div>
-        </div>
-      </header>
+    <div class="shell">
+      <nav class="sidenav">
+        <!-- 图标为内联 SVG（单色实心字形）：颜色走 currentColor，随主题与选中态自动变化；
+             emoji 是彩色位图，无法与深/浅主题统一，故不用 -->
+        <button class="nav-item active" data-nav="events" data-label="首页"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M10.78 1.94a1.75 1.75 0 0 1 2.44 0l9.93 9.34a.72.72 0 0 1-.49 1.25h-2.91v9.86c0 .5-.4.9-.9.9h-4.55a.5.5 0 0 1-.5-.5v-6.6a.5.5 0 0 0-.5-.5h-2.6a.5.5 0 0 0-.5.5v6.6a.5.5 0 0 1-.5.5H4.15a.9.9 0 0 1-.9-.9v-9.86H.34a.72.72 0 0 1-.49-1.25Z"/></svg></span>首页</button>
+        <button class="nav-item" data-nav="cat" data-label="分类"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="0.95" y="0.95" width="10.15" height="10.15" rx="2.5"/><rect x="12.9" y="0.95" width="10.15" height="10.15" rx="2.5"/><rect x="0.95" y="12.9" width="10.15" height="10.15" rx="2.5"/><circle cx="17.98" cy="17.98" r="3.63" fill="none" stroke="currentColor" stroke-width="2.9"/></svg></span>分类</button>
+        <!-- 废纸篓：单色实心垃圾桶（梯形提手 + 圆角盖沿 + 直边圆角桶身），与另两枚图标同规格 -->
+        <button class="nav-item" data-nav="trash" data-label="废纸篓"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M9.3 2.8h5.4a1 1 0 0 1 .98.8l.32 1.4H8l.32-1.4a1 1 0 0 1 .98-.8Z"/><rect x="3" y="5.6" width="18" height="2.6" rx="1.3"/><path d="M5.8 9.4h12.4v9.4a2.4 2.4 0 0 1-2.4 2.4H8.2a2.4 2.4 0 0 1-2.4-2.4V9.4Z"/></svg></span>废纸篓</button>
+        <button class="nav-item" data-nav="settings" data-label="设置"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M2.4 12a9.6 9.6 0 1 1 19.2 0 9.6 9.6 0 1 1 -19.2 0Z M7.5 12a4.5 4.5 0 1 0 9 0 4.5 4.5 0 1 0 -9 0Z"/><rect x="8.7" y="0.2" width="6.6" height="4.8" rx="1.8"/><rect x="8.7" y="19.0" width="6.6" height="4.8" rx="1.8"/><rect x="0.2" y="8.7" width="4.8" height="6.6" rx="1.8"/><rect x="19.0" y="8.7" width="4.8" height="6.6" rx="1.8"/><g transform="rotate(45 12 12)"><rect x="8.9" y="0.2" width="6.2" height="4.8" rx="1.7"/><rect x="8.9" y="19.0" width="6.2" height="4.8" rx="1.7"/><rect x="0.2" y="8.9" width="4.8" height="6.2" rx="1.7"/><rect x="19.0" y="8.9" width="4.8" height="6.2" rx="1.7"/></g></svg></span>设置</button>
+      </nav>
 
-      <div class="toolbar">
-        <div class="search">
-          <input id="searchInput" type="text" placeholder="搜索标题 / 备注…" />
+      <div class="app">
+      <div id="viewEvents">
+      <!-- 顶栏 + 工具条包成一层，整块吸顶（见 style.css 的 .sticky-head） -->
+      <div class="sticky-head">
+        <header class="topbar">
+          <div class="brand">
+            <div class="logo">⏰</div>
+            <div>
+              <h1 data-i18n="brand_name">如期而至</h1>
+              <p class="sub" data-i18n="brand_sub">会员 · 保险 · 合同 · 订阅，到期前提醒不漏接</p>
+            </div>
+          </div>
+          <div class="stats">
+            <!-- 统计卡即筛选入口：点击按对应状态过滤列表，当前生效的卡会高亮（见 render()） -->
+            <button type="button" class="stat" data-stat="all" aria-pressed="true"><span class="num" id="statTotal">0</span><span class="lbl" data-i18n="stat_total">总事件</span></button>
+            <button type="button" class="stat warn" data-stat="soon" aria-pressed="false"><span class="num" id="statSoon">0</span><span class="lbl" data-i18n="stat_soon">即将到期</span></button>
+            <button type="button" class="stat danger" data-stat="over" aria-pressed="false"><span class="num" id="statOver">0</span><span class="lbl" data-i18n="stat_over">已过期</span></button>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <div class="search">
+            <input id="searchInput" type="text" placeholder="搜索标题 / 备注…" data-i18n-ph="search_ph" />
+          </div>
+          <div class="combo" id="filterCatCombo">
+            <button type="button" class="combo-btn" id="filterCategoryBtn">全部分类</button>
+            <div class="combo-panel" id="filterCategoryPanel" hidden></div>
+          </div>
+          <div class="combo" id="filterStatusCombo">
+            <button type="button" class="combo-btn" id="filterStatusBtn">全部状态</button>
+            <div class="combo-panel" id="filterStatusPanel" hidden></div>
+          </div>
+          <div class="spacer"></div>
+          <button id="btnAdd" class="btn primary" data-i18n="btn_add">+ 新增提醒</button>
         </div>
-        <select id="filterCategory" class="select"></select>
-        <select id="filterStatus" class="select">
-          <option value="__all__">全部状态</option>
-          <option value="normal">正常</option>
-          <option value="soon">即将到期</option>
-          <option value="over">已过期</option>
-          <option value="off">已停用</option>
-        </select>
-        <div class="spacer"></div>
-        <button id="btnCat" class="btn ghost">分类管理</button>
-        <button id="btnImport" class="btn ghost">导入</button>
-        <button id="btnExport" class="btn ghost">导出</button>
-        <button id="btnAdd" class="btn primary">+ 新增事件</button>
+
       </div>
 
       <main class="list" id="list"></main>
 
       <div class="empty" id="empty" hidden>
         <div class="empty-icon">📭</div>
-        <p>还没有任何事件</p>
-        <button id="btnAddEmpty" class="btn primary">添加第一个事件</button>
+        <p data-i18n="empty_none">还没有任何事件</p>
+        <button id="btnAddEmpty" class="btn primary" data-i18n="btn_add_first">添加第一个提醒</button>
       </div>
-    </div>
+
+      <div class="empty" id="emptyFilter" hidden>
+        <div class="empty-icon">🔍</div>
+        <p data-i18n="empty_filter">没有符合条件的事件</p>
+        <button id="btnClearFilter" class="btn ghost" data-i18n="btn_clear_filter">清除筛选条件</button>
+      </div>
+      </div><!-- /#viewEvents -->
+
+      <!-- 分类管理页（原为弹窗，改为独立页面） -->
+      <div id="viewCategories" class="view-categories" hidden>
+        <header class="page-head">
+          <h1 data-i18n="cat_mgmt">分类</h1>
+        </header>
+        <p class="cat-tip" data-i18n="cat_tip">改色立即生效；改名会同步更新使用该分类的事件；删除在用分类时，相关事件会归为「其他」。</p>
+        <div id="catRows" class="cat-rows"></div>
+        <div class="cat-add">
+          <input type="color" id="newCatColor" value="#8a8f98" title="选择颜色" />
+          <input type="text" id="newCatName" maxlength="12" placeholder="输入新分类名称" data-i18n-ph="cat_add_ph" />
+          <button type="button" class="btn ghost" id="btnCatAdd" data-i18n="btn_cat_add">＋ 添加</button>
+        </div>
+      </div>
+
+      <!-- 废纸篓页：列表里「删除」只是软删除，条目落到这里，可恢复或彻底删除。
+           彻底删除不可撤销，所以每条都要二次确认（文案里写明「找不回」） -->
+      <div id="viewTrash" class="view-trash" hidden>
+        <header class="page-head">
+          <h1 data-i18n="trash_title">废纸篓</h1>
+        </header>
+        <p class="cat-tip" data-i18n="trash_tip">从列表里删除的事件会先放到这里，不会真的丢掉。可以随时恢复到列表；彻底删除后无法找回。</p>
+        <div class="trash-bar">
+          <span class="trash-count" id="trashCount"></span>
+          <button type="button" class="btn ghost" id="btnPurgeAll" data-i18n="btn_purge_all">清空废纸篓</button>
+        </div>
+        <div id="trashRows" class="trash-rows"></div>
+      </div>
+
+      <!-- 设置页：外观 / 语言 / 时区 / 通知配置 / 数据
+           排版：分区标题 + 「标签在左、控件在右」的行 + 行间 1px 细线，无卡片底 -->
+      <div id="viewSettings" class="view-settings" hidden>
+        <header class="page-head">
+          <h1 data-i18n="set_title">设置</h1>
+        </header>
+
+        <div class="settings-layout">
+          <!-- 设置页自己的左栏：点一项只显示右侧对应的分组 -->
+          <nav class="settings-nav" id="settingsNav">
+            <!-- 按语义分三组；组标题用 .set-nav-group-title，不再额外挂 data-i18n 的容器语义 -->
+            <div class="set-nav-group">
+              <p class="set-nav-group-title" data-i18n="grp_general">通用</p>
+              <button type="button" class="set-nav-item active" data-set="appearance"><span class="set-nav-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="set_appearance">外观</span></button>
+              <button type="button" class="set-nav-item" data-set="language"><span class="set-nav-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 9.5h17.6M3.2 14.5h17.6"/><path d="M12 3c2.4 2.5 3.7 5.6 3.7 9s-1.3 6.5-3.7 9c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3Z"/></svg></span><span data-i18n="set_language">语言</span></button>
+              <button type="button" class="set-nav-item" data-set="region"><span class="set-nav-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.4 2.1"/></svg></span><span data-i18n="set_region">时区</span></button>
+            </div>
+            <div class="set-nav-group">
+              <p class="set-nav-group-title" data-i18n="grp_alert">提醒</p>
+              <button type="button" class="set-nav-item" data-set="notify"><span class="set-nav-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><path d="M6.2 10.2a5.8 5.8 0 0 1 11.6 0c0 3.6 1.4 5 1.4 5H4.8s1.4-1.4 1.4-5Z"/><path d="M10.1 18.4a2.1 2.1 0 0 0 3.8 0"/></svg></span><span data-i18n="set_notify">通知配置</span></button>
+            </div>
+            <div class="set-nav-group">
+              <p class="set-nav-group-title" data-i18n="grp_data">数据</p>
+              <button type="button" class="set-nav-item" data-set="data"><span class="set-nav-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><path d="M8 20V5.2M8 20l-3.3-3.3M8 20l3.3-3.3"/><path d="M16 4v14.8M16 4l-3.3 3.3M16 4l3.3 3.3"/></svg></span><span data-i18n="set_data_io">导入与导出</span></button>
+            </div>
+          </nav>
+
+          <div class="settings-body" id="settingsBody">
+        <section class="set-group" data-group="appearance">
+          <h3 class="set-group-title" data-i18n="set_appearance">外观</h3>
+          <div class="set-rows">
+          <div class="set-row">
+            <span class="set-label">
+              <span class="set-title" data-i18n="theme_label">主题</span>
+              <span class="set-desc" data-i18n="theme_desc">选择界面配色；跟随系统会随系统深浅色自动切换。</span>
+            </span>
+            <!-- 主题选择改为可视化预览（参考图「模式」行的做法：直接看到配色再选） -->
+            <div class="theme-previews">
+            <label class="theme-preview">
+              <input type="radio" name="rq-theme" value="dark" />
+              <span class="tp-box tp-dark"><i class="tp-bar tp-bar-1"></i><i class="tp-bar tp-bar-2"></i><i class="tp-chip"></i></span>
+              <span class="tp-name" data-i18n="theme_dark">深色</span>
+            </label>
+            <label class="theme-preview">
+              <input type="radio" name="rq-theme" value="light" />
+              <span class="tp-box tp-light"><i class="tp-bar tp-bar-1"></i><i class="tp-bar tp-bar-2"></i><i class="tp-chip"></i></span>
+              <span class="tp-name" data-i18n="theme_light">浅色</span>
+            </label>
+            <label class="theme-preview">
+              <input type="radio" name="rq-theme" value="system" />
+              <span class="tp-box tp-system"><i class="tp-bar tp-bar-1"></i><i class="tp-bar tp-bar-2"></i><i class="tp-chip"></i></span>
+              <span class="tp-name" data-i18n="theme_system">跟随系统</span>
+            </label>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-group" data-group="language">
+          <h3 class="set-group-title" data-i18n="set_language">语言</h3>
+          <div class="set-rows">
+          <div class="set-row">
+            <span class="set-label">
+              <span class="set-title" data-i18n="lang_label">界面语言</span>
+              <span class="set-desc" data-i18n="lang_desc">切换后界面文字立即生效。</span>
+            </span>
+            <div class="theme-choices">
+            <label class="theme-choice">
+              <input type="radio" name="rq-lang" value="zh" />
+              <span data-i18n="lang_zh">简体中文</span>
+            </label>
+            <label class="theme-choice">
+              <input type="radio" name="rq-lang" value="en" />
+              <span data-i18n="lang_en">English</span>
+            </label>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        <section class="set-group" data-group="region">
+          <h3 class="set-group-title" data-i18n="set_region">时区</h3>
+          <div class="set-rows">
+            <div class="set-row">
+              <span class="set-label">
+                <span class="set-title" data-i18n="tz_current">当前时区</span>
+                <span class="set-desc" data-i18n="tz_desc">影响界面上的日期与剩余天数；提醒推送仍按系统时间。</span>
+              </span>
+              <!-- 自绘下拉替代原生 select；值不落 DOM，由 JS 的 timezone 变量持有（IANA 名，空 = 跟随系统），
+                   随 save_settings 一起持久化到本机 settings.json -->
+              <div class="combo" id="tzCombo">
+                <button type="button" class="combo-btn" id="tzBtn">跟随系统</button>
+                <div class="combo-panel" id="tzPanel" hidden></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-group" data-group="notify">
+          <h3 class="set-group-title" data-i18n="set_notify">通知配置</h3>
+          <p class="set-note" data-i18n="notify_tip">到期提醒时，除了本地系统通知，还会向已配置的群各推一条消息。Webhook 地址只保存在本机。</p>
+          <form id="notifyForm" class="set-rows">
+            <label class="set-row"><span class="set-label"><span class="set-title" data-i18n="wecom_label">企业微信机器人 Webhook</span></span>
+              <input id="fWecom" type="text" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…" autocomplete="off" />
+            </label>
+            <label class="set-row"><span class="set-label"><span class="set-title" data-i18n="ding_label">钉钉机器人 Webhook</span></span>
+              <input id="fDingtalk" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=…" autocomplete="off" />
+            </label>
+            <div class="set-row set-row-actions">
+              <div class="form-actions">
+                <button type="button" class="btn ghost" id="btnNotifyTest" data-i18n="btn_test">发送测试</button>
+                <button type="submit" class="btn primary" data-i18n="btn_save">保存</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section class="set-group" data-group="data">
+          <h3 class="set-group-title" data-i18n="set_data">数据</h3>
+          <div class="set-rows">
+            <div class="set-row">
+              <span class="set-label with-ico"><span class="set-row-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><path d="M12 3.5v10.5M12 14l-3.6-3.6M12 14l3.6-3.6"/><path d="M4.5 19.5h15"/></svg></span><span class="set-label-text"><span class="set-title" data-i18n="data_import_label">从备份文件导入</span><span class="set-desc" data-i18n="data_import_desc">会覆盖当前全部事件；备份文件里不含分类。</span></span></span>
+              <button id="btnImport" class="btn ghost" data-i18n="btn_import">导入</button>
+            </div>
+            <div class="set-row">
+              <span class="set-label with-ico"><span class="set-row-ico"><svg viewBox="0 0 24 24" class="li" aria-hidden="true"><path d="M12 20.5V10M12 10l-3.6 3.6M12 10l3.6 3.6"/><path d="M4.5 4.5h15"/></svg></span><span class="set-label-text"><span class="set-title" data-i18n="data_export_label">导出为备份文件</span><span class="set-desc" data-i18n="data_export_desc">把全部事件存成一个 JSON 文件（不含分类）。</span></span></span>
+              <button id="btnExport" class="btn ghost" data-i18n="btn_export">导出</button>
+            </div>
+          </div>
+        </section>
+          </div><!-- /.settings-body -->
+        </div><!-- /.settings-layout -->
+      </div><!-- /#viewSettings -->
+      </div><!-- /.app -->
+    </div><!-- /.shell -->
 
     <!-- 新增 / 编辑 弹窗 -->
     <div class="modal" id="modal" hidden>
       <div class="modal-card">
         <div class="modal-head">
-          <h2 id="modalTitle">新增事件</h2>
+          <h2 id="modalTitle">新增提醒</h2>
           <button class="icon-btn" id="modalClose">✕</button>
         </div>
         <form id="eventForm" class="form">
-          <label>标题 <span class="req">*</span>
-            <input id="fTitle" type="text" maxlength="60" placeholder="例如：视频网站会员续费" required />
+          <label><span><span data-i18n="f_title">标题</span> <span class="req">*</span></span>
+            <input id="fTitle" type="text" maxlength="60" placeholder="例如：视频网站会员续费" data-i18n-ph="f_title_ph" required />
           </label>
-          <label>分类
+          <label><span data-i18n="f_cat">分类</span>
             <div class="combo" id="catCombo">
-              <input id="fCategory" type="text" maxlength="12" placeholder="选择或输入自定义分类" autocomplete="off" />
+              <input id="fCategory" type="text" maxlength="12" placeholder="选择或输入自定义分类" data-i18n-ph="f_cat_ph" autocomplete="off" />
               <!-- 自绘建议面板：替代原生 datalist 弹层（样式不可控），点选填入，仍保留自由输入 -->
               <div class="combo-panel" id="catPanel" hidden></div>
             </div>
           </label>
-          <label>到期日 <span class="req">*</span>
+          <label><span><span data-i18n="f_due">到期日</span> <span class="req">*</span></span>
             <div class="datepicker" id="duePicker">
-              <input id="fDue" type="text" readonly placeholder="选择日期" />
+              <input id="fDue" type="text" readonly placeholder="选择日期" data-i18n-ph="f_due_ph" />
               <!-- 自定义日历面板：替代原生 type="date 的系统弹窗，样式与操作统一 -->
               <div class="dp-panel" id="duePanel" hidden>
                 <div class="dp-head">
+                  <button type="button" class="dp-nav" id="dpPrevYear" title="上一年">«</button>
                   <button type="button" class="dp-nav" id="dpPrev" title="上个月">‹</button>
-                  <span class="dp-title" id="dpTitle"></span>
+                  <button type="button" class="dp-title" id="dpTitle" title="选择月份"></button>
                   <button type="button" class="dp-nav" id="dpNext" title="下个月">›</button>
+                  <button type="button" class="dp-nav" id="dpNextYear" title="下一年">»</button>
                 </div>
                 <div class="dp-grid dp-week">
-                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                  <span data-i18n="w0">日</span><span data-i18n="w1">一</span><span data-i18n="w2">二</span><span data-i18n="w3">三</span><span data-i18n="w4">四</span><span data-i18n="w5">五</span><span data-i18n="w6">六</span>
                 </div>
                 <div class="dp-grid" id="dpDays"></div>
                 <div class="dp-foot">
-                  <button type="button" id="dpToday">今天</button>
+                  <button type="button" id="dpToday" data-i18n="dp_today">今天</button>
                 </div>
               </div>
             </div>
           </label>
-          <label>提醒规则
+          <label><span data-i18n="f_rules">提醒规则</span>
             <div class="rules" id="ruleChips"></div>
             <div class="rule-add">
-              <input id="fRuleDay" type="number" min="0" max="365" placeholder="提前 N 天，0 = 当天" />
-              <button type="button" class="btn ghost" id="btnRuleAdd">添加</button>
-              <button type="button" class="btn ghost" id="btnRulePreset">预设 7/3/1/当天</button>
+              <input id="fRuleDay" type="number" min="0" max="365" placeholder="提前 N 天，0 = 当天" data-i18n-ph="rule_ph" />
+              <button type="button" class="btn ghost" id="btnRuleAdd" data-i18n="btn_rule_add">添加</button>
+              <button type="button" class="btn ghost" id="btnRulePreset" data-i18n="btn_rule_preset">预设 7/3/1/当天</button>
             </div>
           </label>
-          <label>续订周期
+          <label><span data-i18n="f_cycle">续订周期</span>
             <!-- 自绘下拉：替代原生 select（弹层样式不可控）；值仍存隐藏 input，提交逻辑不变 -->
             <input id="fCycle" type="hidden" value="0" />
             <div class="combo" id="cycleCombo">
@@ -105,33 +303,14 @@
               <div class="combo-panel" id="cyclePanel" hidden></div>
             </div>
           </label>
-          <label>备注
-            <textarea id="fNote" rows="3" maxlength="200" placeholder="可选，例如：自动续费，记得取消"></textarea>
+          <label><span data-i18n="f_note">备注</span>
+            <textarea id="fNote" rows="3" maxlength="200" placeholder="可选，例如：自动续费，记得取消" data-i18n-ph="f_note_ph"></textarea>
           </label>
           <div class="form-actions">
-            <button type="button" class="btn ghost" id="btnCancel">取消</button>
-            <button type="submit" class="btn primary">保存</button>
+            <button type="button" class="btn ghost" id="btnCancel" data-i18n="btn_cancel">取消</button>
+            <button type="submit" class="btn primary" data-i18n="btn_save">保存</button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- 分类管理弹窗 -->
-    <div class="modal" id="catModal" hidden>
-      <div class="modal-card">
-        <div class="modal-head">
-          <h2>分类管理</h2>
-          <button class="icon-btn" id="catModalClose">✕</button>
-        </div>
-        <div class="cat-body">
-          <p class="cat-tip">改色立即生效；改名会同步更新使用该分类的事件；删除在用分类时，相关事件会归为「其他」。</p>
-          <div id="catRows"></div>
-          <div class="cat-add">
-            <input type="color" id="newCatColor" value="#8a8f98" title="选择颜色" />
-            <input type="text" id="newCatName" maxlength="12" placeholder="输入新分类名称" />
-            <button type="button" class="btn ghost" id="btnCatAdd">＋ 添加</button>
-          </div>
-        </div>
       </div>
     </div>
 

@@ -1,10 +1,19 @@
 [package]
-name = "ruqi"
+name = "Duely"
 version = "0.1.0"
-description = "如期而至 - 到期时间提醒助手"
-authors = ["Ruqi Contributors"]
+description = "Duely（如期而至）- 到期时间提醒助手"
+authors = ["Duely Contributors"]
 edition = "2021"
 rust-version = "1.77"
+
+# ⚠️ 不要把二进制目标名改成中文（曾试过 [[bin]] name = "如期而至" + default-run，会把应用打挂）。
+# macOS 上 dev 模式跑的是裸可执行文件，Dock 悬停提示/程序坞名称只取「可执行文件名」，
+# 与 productName 无关 —— 但可执行文件名带非 ASCII 字符时，CoreFoundation 在
+# `_CFBundleEnsureBundleExistsForImagePath` → `CFRelease(NULL)` 直接 SIGTRAP 崩掉
+# （崩溃栈 wry::webview_version → NSBundle.bundleWithIdentifier，实测 exit=133）。
+# 结论：dev 下 Dock 显示可执行文件名（现为 duely，ASCII 安全）；打包后 .app 名为 如期而至（productName），
+# 那时 Dock / 菜单栏 / 关于 都显示中文，中文的 .app 目录本身是安全的（已验证）。
+# 细节见 .workbuddy/memory/2026-10-09.md。
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -16,3 +25,5 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# 群机器人 Webhook 推送（企业微信/钉钉），阻塞式 HTTP，调用点都在异步命令的工作线程上
+ureq = { version = "2", features = ["json"] }

@@ -39,6 +39,12 @@ struct EventItem {
     updated_at: String,
     /// 最近一次成功发出系统通知的时间（RFC3339），用于按天去重，避免同一天重复弹窗
     notified_at: Option<String>,
+    /// 软删除标记：有值 = 已移入废纸篓（存的是删除时刻的 RFC3339）。
+    /// 用软删除而不是直接从数组里删掉，是为了让用户能恢复误删；
+    /// 废纸篓里的条目完全不参与提醒、统计与列表。
+    /// serde(default) 兼容旧数据（没有这个字段时视为 None = 未删除）
+    #[serde(default)]
+    deleted_at: Option<String>,
 }
 
 impl EventItem {
@@ -60,12 +66,31 @@ struct Category {
     color: String,
 }
 
+/// 通知设置：企业微信 / 钉钉群机器人 Webhook 地址，存 settings.json。
+/// 地址本身含密钥（key/access_token），只存在本机应用数据目录，不上传任何第三方。
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(default)]
+struct NotifySettings {
+    wecom_webhook: String,
+    dingtalk_webhook: String,
+    /// 界面语言（zh/en）；旧版 settings.json 无此字段，serde(default) 兜底为空串，
+    /// 前端把空串按中文处理
+    #[serde(default)]
+    language: String,
+    /// 界面显示用 IANA 时区（如 Asia/Shanghai），空 = 跟随系统；
+    /// 只影响前端日期/剩余天数显示，提醒调度仍按系统本地时间
+    #[serde(default)]
+    timezone: String,
+}
+
 /// 全局状态：事件列表 + 分类列表 + 各自的数据文件路径
 struct AppState {
     events: Mutex<Vec<EventItem>>,
     file_path: PathBuf,
     categories: Mutex<Vec<Category>>,
     cat_file_path: PathBuf,
+    settings: Mutex<NotifySettings>,
+    settings_path: PathBuf,
 }
 
 fn now_iso() -> String {
@@ -111,6 +136,81 @@ fn persist_categories(state: &AppState) {
     if let Ok(json) = serde_json::to_string_pretty(&*cats) {
         let _ = fs::write(&state.cat_file_path, json);
     }
+}
+
+/// 读取通知设置；文件不存在或损坏时返回默认（两个 Webhook 均为空 = 不推送）
+fn load_settings(path: &PathBuf) -> NotifySettings {
+    match fs::read_to_string(path) {
+        Ok(s) if !s.trim().is_empty() => serde_json::from_str(&s).unwrap_or_default(),
+        _ => NotifySettings::default(),
+    }
+}
+
+fn persist_settings(state: &AppState) {
+    let settings = state.settings.lock().unwrap();
+    if let Ok(json) = serde_json::to_string_pretty(&*settings) {
+        let _ = fs::write(&state.settings_path, json);
+    }
+}
+
+#[tauri::command]
+fn get_settings(state: tauri::State<AppState>) -> NotifySettings {
+    state.settings.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_settings(state: tauri::State<AppState>, settings: NotifySettings) -> Result<(), String> {
+    let mut guard = state.settings.lock().unwrap();
+    *guard = settings;
+    drop(guard);
+    persist_settings(&state);
+    Ok(())
+}
+
+/// 向群机器人推送文本消息。best-effort：失败只打印日志，绝不影响本地提醒流程；
+/// 网络调用带 5 秒超时，防止弱网拖住提醒循环。
+fn push_webhooks(settings: &NotifySettings, text: &str) {
+    let payload = || serde_json::json!({ "msgtype": "text", "text": { "content": text } });
+    if !settings.wecom_webhook.is_empty() {
+        if let Err(e) = ureq::post(&settings.wecom_webhook)
+            .timeout(Duration::from_secs(5))
+            .send_json(payload())
+        {
+            eprintln!("[webhook] 企业微信推送失败：{e}");
+        }
+    }
+    if !settings.dingtalk_webhook.is_empty() {
+        if let Err(e) = ureq::post(&settings.dingtalk_webhook)
+            .timeout(Duration::from_secs(5))
+            .send_json(payload())
+        {
+            eprintln!("[webhook] 钉钉推送失败：{e}");
+        }
+    }
+}
+
+/// 用设置弹窗里当前输入的地址各发一条测试消息，不落盘、不改配置
+#[tauri::command]
+fn test_webhooks(wecom_webhook: String, dingtalk_webhook: String) {
+    push_webhooks(
+        &NotifySettings {
+            wecom_webhook,
+            dingtalk_webhook,
+            ..Default::default() // language/timezone 与推送无关，取默认值
+        },
+        "【如期而至】测试消息：如果你在企业微信/钉钉群里看到这条，说明 Webhook 配置正确。",
+    );
+}
+
+/// 发一条本地系统通知，用于验证系统通知权限与通道是否正常
+#[tauri::command]
+fn test_notify(app: AppHandle) {
+    let _ = app
+        .notification()
+        .builder()
+        .title("如期而至")
+        .body("这是一条测试通知，说明系统通知已正常工作。")
+        .show();
 }
 
 #[tauri::command]
@@ -212,6 +312,10 @@ fn renew_event(state: tauri::State<AppState>, id: String) -> Result<EventItem, S
         .iter_mut()
         .find(|e| e.id == id)
         .ok_or_else(|| "事件不存在".to_string())?;
+    if ev.deleted_at.is_some() {
+        // 废纸篓里的条目应先恢复再续订：直接续订会让一个用户以为已经删掉的东西悄悄活过来
+        return Err("该事件在废纸篓中，请先恢复".to_string());
+    }
     if ev.cycle_months == 0 {
         return Err("该事件未设置续订周期".to_string());
     }
@@ -245,40 +349,58 @@ fn run_scheduler(app_handle: AppHandle) {
     });
 }
 
+/// 过期后持续提醒的天数上限，超过后不再弹窗（避免已弃用条目每天骚扰）
+const OVERDUE_NAG_DAYS: i64 = 30;
+
+/// 「今天该不该提醒这条事件」的唯一判据（纯函数，便于测试）。
+/// 返回 None = 不提醒；Some(days_left) = 该提醒，并带上剩余天数（负数 = 已过期）。
+///
+/// 判定顺序：停用 / 废纸篓 → 日期非法 → 命中规则。
+/// 为什么抽出来：原来这段内联在 check_due 的扫描循环里，而循环需要 AppHandle 才能跑，
+/// 结果「废纸篓里的条目不提醒」这类规则没法写测试，只能靠肉眼读代码。
+fn due_hit(ev: &EventItem, today: NaiveDate) -> Option<i64> {
+    if ev.disabled {
+        return None; // 停用：不提醒
+    }
+    if ev.deleted_at.is_some() {
+        return None; // 在废纸篓里：不提醒（已删除的条目不该再骚扰用户）
+    }
+    let due = NaiveDate::parse_from_str(&ev.due_date, "%Y-%m-%d").ok()?; // 日期非法则跳过
+    let days_left = (due - today).num_days();
+    // 命中判断：未到期要求「正好等于」某条规则；过期要求在上限内
+    let hit = if days_left >= 0 {
+        ev.rules().contains(&days_left)
+    } else {
+        -days_left <= OVERDUE_NAG_DAYS
+    };
+    if hit {
+        Some(days_left)
+    } else {
+        None
+    }
+}
+
 /// 核心提醒逻辑（多规则版）：
+/// - 是否提醒单条事件由 due_hit 判定（含停用 / 废纸篓 / 日期非法 / 规则命中）
 /// - 未到期：剩余天数正好等于某条规则（0=当天）时提醒一次
 /// - 已过期：每天催一次直到处理，最多连催 30 天（防止弃用条目永久弹窗；更久的过期条目列表里仍可见）
 /// - 停用（disabled）的条目完全不提醒
 /// 同一天不重复弹窗，靠 notified_at 的日期部分去重
 fn check_due(app_handle: &AppHandle) {
-    /// 过期后持续提醒的天数上限，超过后不再弹窗（避免已弃用条目每天骚扰）
-    const OVERDUE_NAG_DAYS: i64 = 30;
     let state = app_handle.state::<AppState>();
     let today = today_naive();
     let today_iso = today.format("%Y-%m-%d").to_string();
 
     let mut guard = state.events.lock().unwrap();
     let mut changed = false;
+    // 本次扫描命中待发的群消息，统一在释放锁后发送
+    let mut pushes: Vec<String> = Vec::new();
 
     for ev in guard.iter_mut() {
-        if ev.disabled {
-            continue; // 停用：不提醒
-        }
-        let due = match NaiveDate::parse_from_str(&ev.due_date, "%Y-%m-%d") {
-            Ok(d) => d,
-            Err(_) => continue, // 日期格式非法，跳过
+        let days_left = match due_hit(ev, today) {
+            Some(d) => d,
+            None => continue,
         };
-        let days_left = (due - today).num_days();
-
-        // 命中判断：未到期要求「正好等于」某条规则；过期要求在上限内
-        let hit = if days_left >= 0 {
-            ev.rules().contains(&days_left)
-        } else {
-            -days_left <= OVERDUE_NAG_DAYS
-        };
-        if !hit {
-            continue;
-        }
 
         // 当天已通知过则跳过，实现“每天最多提醒一次”
         let last = ev
@@ -301,17 +423,27 @@ fn check_due(app_handle: &AppHandle) {
         let _ = app_handle
             .notification()
             .builder()
-            .title(title)
-            .body(body)
+            // builder 按值消费 title/body，这里 clone，原值还要拼群消息文本
+            .title(title.clone())
+            .body(body.clone())
             .show();
+
+        // Webhook 推送延后到释放事件锁之后统一发，避免弱网时抱着锁阻塞 UI 的保存操作
+        pushes.push(format!("{title}\n{body}"));
 
         ev.notified_at = Some(now_iso());
         changed = true;
     }
 
+    // 先取设置快照、释放事件锁，再发网络请求（锁内只做内存操作）
+    let settings = state.settings.lock().unwrap().clone();
+    drop(guard);
+
     if changed {
-        drop(guard);
         persist(&state);
+    }
+    for text in pushes {
+        push_webhooks(&settings, &text);
     }
 }
 
@@ -332,11 +464,15 @@ fn main() {
             let events = load_events(&file_path);
             let cat_file_path = dir.join("categories.json");
             let categories = load_categories(&cat_file_path);
+            let settings_path = dir.join("settings.json");
+            let settings = load_settings(&settings_path);
             app.manage(AppState {
                 events: Mutex::new(events),
                 file_path,
                 categories: Mutex::new(categories),
                 cat_file_path,
+                settings: Mutex::new(settings),
+                settings_path,
             });
 
             // 系统托盘：显示主窗口 / 退出
@@ -384,7 +520,11 @@ fn main() {
             export_events,
             get_categories,
             save_categories,
-            renew_event
+            renew_event,
+            get_settings,
+            save_settings,
+            test_webhooks,
+            test_notify
         ])
         .build(tauri::generate_context!())
         .expect("构建 Tauri 应用失败")
@@ -401,4 +541,110 @@ fn main() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 造一条最小可用的测试事件
+    fn ev(due: &str, rules: Vec<i64>, disabled: bool, deleted: Option<&str>) -> EventItem {
+        EventItem {
+            id: "t1".into(),
+            title: "测试".into(),
+            category: "其他".into(),
+            due_date: due.into(),
+            remind_days_before: 7,
+            remind_days: rules,
+            cycle_months: 0,
+            disabled,
+            note: String::new(),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+            notified_at: None,
+            deleted_at: deleted.map(|s| s.to_string()),
+        }
+    }
+
+    fn d(s: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+    }
+
+    /// 核心：废纸篓里的条目一律不提醒（这是本次改动的关键规则）
+    #[test]
+    fn trashed_event_never_fires() {
+        let today = d("2026-10-09");
+        // 到期当天、规则命中 —— 若不在废纸篓里本该提醒
+        let live = ev("2026-10-09", vec![0], false, None);
+        assert_eq!(due_hit(&live, today), Some(0), "未删除的条目应当提醒");
+        // 同样的数据，只是进了废纸篓
+        let trashed = ev("2026-10-09", vec![0], false, Some("2026-10-08T10:00:00Z"));
+        assert_eq!(due_hit(&trashed, today), None, "废纸篓里的条目不该提醒");
+    }
+
+    #[test]
+    fn disabled_event_does_not_fire() {
+        let today = d("2026-10-09");
+        let e = ev("2026-10-09", vec![0], true, None);
+        assert_eq!(due_hit(&e, today), None);
+    }
+
+    #[test]
+    fn reminds_only_on_exact_rule_day() {
+        let today = d("2026-10-09");
+        // 到期日 10-16 → 还剩 7 天，规则含 7 → 命中
+        assert_eq!(due_hit(&ev("2026-10-16", vec![7, 3, 1, 0], false, None), today), Some(7));
+        // 还剩 5 天，规则只有 7/3 → 不命中（是「正好 N 天」而不是「≤N 天」）
+        assert_eq!(due_hit(&ev("2026-10-14", vec![7, 3], false, None), today), None);
+    }
+
+    #[test]
+    fn overdue_nags_within_limit_then_stops() {
+        let today = d("2026-10-09");
+        // 过期 30 天以内：继续提醒
+        assert_eq!(due_hit(&ev("2026-09-10", vec![7], false, None), today), Some(-29));
+        // 过期超过 30 天：停止
+        assert_eq!(due_hit(&ev("2026-08-01", vec![7], false, None), today), None);
+    }
+
+    #[test]
+    fn invalid_or_legacy_date_is_skipped() {
+        let today = d("2026-10-09");
+        assert_eq!(due_hit(&ev("not-a-date", vec![0], false, None), today), None);
+        assert_eq!(due_hit(&ev("", vec![0], false, None), today), None);
+    }
+
+    /// 旧字段兜底：remind_days 为空时回退 remind_days_before（升级前的数据结构）
+    #[test]
+    fn falls_back_to_legacy_single_rule() {
+        let today = d("2026-10-09");
+        assert_eq!(due_hit(&ev("2026-10-16", vec![], false, None), today), Some(7));
+    }
+
+    /// 数据安全：旧数据没有 deleted_at 字段，必须仍能解析出「未删除」。
+    /// 如果这里失败，load_events 的 unwrap_or_default() 会返回空列表，
+    /// 紧接着 persist 就把空列表写回去 —— 用户的全部数据会被静默清空。
+    #[test]
+    fn legacy_json_without_deleted_at_still_parses() {
+        let legacy = r#"[{
+            "id":"e1","title":"旧数据","category":"会员","due_date":"2026-12-01",
+            "remind_days_before":7,"remind_days":[7,3,1,0],"cycle_months":12,
+            "disabled":false,"note":"","created_at":"2026-01-01T00:00:00Z",
+            "updated_at":"2026-01-01T00:00:00Z","notified_at":null
+        }]"#;
+        let list: Vec<EventItem> = serde_json::from_str(legacy).expect("旧数据必须能解析");
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].deleted_at, None, "缺字段时应视为未删除");
+        assert_eq!(list[0].rules(), vec![7, 3, 1, 0]);
+    }
+
+    /// 新数据往返：deleted_at 要能存下来也能读回来
+    #[test]
+    fn deleted_at_round_trips_through_json() {
+        let e = ev("2026-10-09", vec![0], false, Some("2026-10-08T10:00:00Z"));
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("deleted_at"), "序列化结果应含 deleted_at");
+        let back: EventItem = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.deleted_at.as_deref(), Some("2026-10-08T10:00:00Z"));
+    }
 }

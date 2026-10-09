@@ -31,9 +31,22 @@ Thumbs.db
 # Tauri 构建期自动生成的 ACL schema，不入库
 src-tauri/gen/schemas/
 
-# 撤销用户全局 .gitignore 对 *.md / LICENSE / *.png 的忽略（本项目需要这些文件）
+# Python 缓存（src-tauri/gen_icon.py 被导入/编译时会生成 __pycache__）
+__pycache__/
+*.pyc
+
+# 撤销用户全局 .gitignore 对 *.md / LICENSE / *.png / docs 的忽略（本项目需要这些文件）
 !README.md
+!README.en.md
+!AGENTS.md
 !LICENSE
 !src-tauri/icon-source.png
 !src-tauri/icons/**
+# README 截图在 docs/screenshots/ 下。全局 gitignore 里有 `docs`（整个目录被排除）
+# 和 `*.png`（所有 PNG）两条规则，必须**先放行目录、再放行文件** ——
+# 目录被排除时 git 根本不会进去看，只写 `!*.png` 是无效的。
+# 漏了这两行时，新增的截图不会被 git 跟踪，推到 GitHub 上 README 就是裂图。
+!docs/
+!docs/screenshots/
+!docs/screenshots/*.png
 

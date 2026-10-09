@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.ruqierzhi",
   "build": {
-    "frontendDist": "../src",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "node dev-server.mjs",
-    "beforeBuildCommand": ""
+    "beforeDevCommand": "npm run dev:vite",
+    "beforeBuildCommand": "npm run build:vite"
   },
   "app": {
     "withGlobalTauri": true,
@@ -15,10 +15,10 @@
       {
         "label": "main",
         "title": "如期而至",
-        "width": 1040,
-        "height": 720,
-        "minWidth": 820,
-        "minHeight": 560,
+        "width": 1280,
+        "height": 860,
+        "minWidth": 900,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false
       }
@@ -38,7 +38,7 @@
       "icons/icon.ico"
     ],
     "category": "Utility",
-    "shortDescription": "如期而至 - 到期时间提醒助手",
+    "shortDescription": "Duely（如期而至）- 到期时间提醒助手",
     "longDescription": "如期而至帮你管理会员、保险、合同、证件、账单、订阅等一切会到期的事件，并在到期前按时弹出系统级通知提醒，关掉窗口也不漏接。"
   },
   "plugins": {}
