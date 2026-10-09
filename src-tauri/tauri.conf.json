@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "python3 -m http.server 3000 --directory src",
+    "beforeDevCommand": "node dev-server.mjs",
     "beforeBuildCommand": ""
   },
   "app": {

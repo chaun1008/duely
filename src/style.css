@@ -169,13 +169,54 @@ body {
 .days.soon { background: rgba(245, 166, 35, 0.15); color: var(--warn); }
 .days.over { background: rgba(255, 90, 95, 0.16); color: var(--danger); }
 
-.row-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.row-actions { display: flex; gap: 6px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
 .mini {
   border: 1px solid var(--border); background: transparent; color: var(--muted);
   border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 12px;
 }
-.mini:hover { color: var(--text); border-color: #444852; }
-.mini.del:hover { color: var(--danger); border-color: var(--danger); }
+/* 操作按钮按动作固定颜色身份：蓝=编辑、紫=克隆、琥珀=停用/启用、青=续订、红=删除，
+   不用 hover 才变色——列表里一眼能区分动作，降低误点删除的概率 */
+.mini.edit { color: #5b9dff; border-color: rgba(91, 157, 255, 0.4); }
+.mini.edit:hover { border-color: #5b9dff; background: rgba(91, 157, 255, 0.08); }
+.mini.clone { color: #a78bfa; border-color: rgba(167, 139, 250, 0.4); }
+.mini.clone:hover { border-color: #a78bfa; background: rgba(167, 139, 250, 0.08); }
+.mini.toggle { color: var(--warn); border-color: rgba(245, 166, 35, 0.4); }
+.mini.toggle:hover { border-color: var(--warn); background: rgba(245, 166, 35, 0.08); }
+.mini.renew { color: var(--ok); border-color: rgba(45, 212, 191, 0.4); }
+.mini.renew:hover { color: var(--ok); border-color: var(--ok); background: rgba(45, 212, 191, 0.08); }
+.mini.del { color: var(--danger); border-color: rgba(255, 90, 95, 0.4); }
+.mini.del:hover { color: #ff7a7e; border-color: var(--danger); background: rgba(255, 90, 95, 0.1); }
+
+/* 停用的事件：整体降透明度 + 左侧灰色条，与已过期/即将到期的语义区分 */
+.card.off { opacity: 0.45; border-left: 3px solid var(--border); }
+.card.off.overdue, .card.off.soon { border-left-color: var(--border); }
+.off-tag {
+  font-size: 11px; font-weight: 400; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 6px;
+}
+.card-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+/* 提醒规则芯片 */
+.rules { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; }
+.rule-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 6px 4px 12px; font-size: 12px; color: var(--text);
+}
+.chip-x {
+  border: none; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 50%;
+}
+.chip-x:hover { color: var(--danger); }
+.rule-empty { font-size: 12px; color: var(--muted); }
+.rule-add { display: flex; gap: 6px; align-items: center; }
+.rule-add input {
+  width: 150px !important; flex: none;
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; padding: 7px 10px; font-size: 13px; outline: none;
+}
+.rule-add input:focus { border-color: var(--accent); }
+.rule-add .btn { padding: 7px 10px; font-size: 12px; }
 
 /* 空状态 */
 .empty { text-align: center; padding: 70px 0; color: var(--muted); }
@@ -189,13 +230,18 @@ body {
   z-index: 50;
   backdrop-filter: blur(2px);
 }
+/* hidden 属性优先级修复：作者样式 display:grid 会覆盖 UA 的 [hidden]{display:none}，
+   导致 JS 设置 modal.hidden=true 后弹窗仍然显示（关不掉的根因） */
+.modal[hidden] { display: none; }
 .modal-card {
   width: min(440px, 92vw);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow);
-  overflow: hidden;
+  /* 不能用 overflow:hidden：日期选择面板是绝对定位下拉，会被卡片裁掉；
+     卡片内子元素均有内边距，不依赖 hidden 来圆角裁切 */
+  overflow: visible;
 }
 .modal-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -206,6 +252,73 @@ body {
 .form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .form .req { color: var(--danger); }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* 自定义日期选择器 */
+.datepicker { position: relative; }
+.datepicker input { cursor: pointer; }
+.dp-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 70;
+  width: 268px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+}
+/* hidden 兜底：与 .modal 同坑，display 样式会覆盖 UA 的 [hidden]{display:none} */
+.dp-panel[hidden] { display: none; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dp-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.dp-nav {
+  width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1;
+}
+.dp-nav:hover { color: var(--text); border-color: #444852; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-week { margin-bottom: 4px; }
+.dp-week span { text-align: center; font-size: 11px; color: var(--muted); padding: 4px 0; }
+.dp-day {
+  height: 32px; border: 1px solid transparent; border-radius: 8px; background: transparent;
+  color: var(--text); font-size: 13px; cursor: pointer;
+}
+.dp-day:hover { background: rgba(255, 255, 255, 0.07); }
+.dp-day.out { color: var(--muted); opacity: 0.45; }
+.dp-day.today { border-color: var(--accent); } /* 今天用描边标记，避免和选中态混淆 */
+.dp-day.sel { background: var(--accent); color: #fff; font-weight: 600; }
+.dp-foot { margin-top: 8px; display: flex; justify-content: flex-end; }
+.dp-foot button {
+  border: none; background: transparent; color: var(--accent);
+  font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 8px;
+}
+.dp-foot button:hover { background: rgba(255, 90, 95, 0.12); }
+
+/* 自绘下拉（分类建议面板 / 续订周期）：替代原生 datalist & select 的系统弹层，
+   webview 里原生弹层是浅色系统样式，与暗色主题完全脱节 */
+.combo { position: relative; }
+.combo-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 4px; max-height: 200px; overflow-y: auto;
+}
+.combo-panel[hidden] { display: none; } /* 同 .modal 的坑：自定义面板样式会覆盖 [hidden]，必须显式补 */
+.combo-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 10px; border: none; background: transparent; color: var(--text);
+  border-radius: 7px; cursor: pointer; font-size: 13px; text-align: left;
+}
+.combo-item:hover { background: rgba(255, 255, 255, 0.06); }
+.combo-item .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+/* 触发按钮：右側用两个三角拼出下拉箭头，不用原生 appearance 以避开系统样式 */
+.combo-btn {
+  width: 100%; text-align: left; padding: 10px 30px 10px 12px;
+  background-color: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-size: 14px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+  background-size: 5px 5px; background-repeat: no-repeat;
+}
+.combo-btn:hover { border-color: #444852; }
 
 /* toast */
 .toast {
@@ -219,3 +332,34 @@ body {
 .toast.err { border-color: var(--danger); color: #ffd5d6; }
 .toast.ok { border-color: var(--ok); color: #c7f7f0; }
 @keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* 分类管理弹窗 */
+.cat-body { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; }
+.cat-tip { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.cat-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+}
+.cat-color {
+  width: 34px; height: 28px; padding: 2px; flex: none;
+  border: 1px solid var(--border); border-radius: 6px; background: transparent; cursor: pointer;
+}
+.cat-name {
+  flex: 1; min-width: 0;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--text); font-size: 14px; padding: 5px 8px;
+}
+.cat-name:hover { border-color: var(--border); }
+.cat-name:focus { border-color: var(--accent); outline: none; background: var(--bg); }
+.cat-usage { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.cat-del:disabled { opacity: 0.4; cursor: not-allowed; }
+.cat-add {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 10px; border-top: 1px dashed var(--border);
+}
+.cat-add input[type="text"] {
+  flex: 1; min-width: 0; padding: 7px 10px; font-size: 14px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.cat-add input[type="text"]:focus { border-color: var(--accent); outline: none; }

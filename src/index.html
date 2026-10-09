@@ -28,7 +28,15 @@
           <input id="searchInput" type="text" placeholder="搜索标题 / 备注…" />
         </div>
         <select id="filterCategory" class="select"></select>
+        <select id="filterStatus" class="select">
+          <option value="__all__">全部状态</option>
+          <option value="normal">正常</option>
+          <option value="soon">即将到期</option>
+          <option value="over">已过期</option>
+          <option value="off">已停用</option>
+        </select>
         <div class="spacer"></div>
+        <button id="btnCat" class="btn ghost">分类管理</button>
         <button id="btnTest" class="btn ghost">测试通知</button>
         <button id="btnImport" class="btn ghost">导入</button>
         <button id="btnExport" class="btn ghost">导出</button>
@@ -56,14 +64,47 @@
             <input id="fTitle" type="text" maxlength="60" placeholder="例如：视频网站会员续费" required />
           </label>
           <label>分类
-            <input id="fCategory" type="text" list="catList" maxlength="12" placeholder="选择或输入自定义分类" />
-            <datalist id="catList"></datalist>
+            <div class="combo" id="catCombo">
+              <input id="fCategory" type="text" maxlength="12" placeholder="选择或输入自定义分类" autocomplete="off" />
+              <!-- 自绘建议面板：替代原生 datalist 弹层（样式不可控），点选填入，仍保留自由输入 -->
+              <div class="combo-panel" id="catPanel" hidden></div>
+            </div>
           </label>
           <label>到期日 <span class="req">*</span>
-            <input id="fDue" type="date" required />
+            <div class="datepicker" id="duePicker">
+              <input id="fDue" type="text" readonly placeholder="选择日期" />
+              <!-- 自定义日历面板：替代原生 type="date 的系统弹窗，样式与操作统一 -->
+              <div class="dp-panel" id="duePanel" hidden>
+                <div class="dp-head">
+                  <button type="button" class="dp-nav" id="dpPrev" title="上个月">‹</button>
+                  <span class="dp-title" id="dpTitle"></span>
+                  <button type="button" class="dp-nav" id="dpNext" title="下个月">›</button>
+                </div>
+                <div class="dp-grid dp-week">
+                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                </div>
+                <div class="dp-grid" id="dpDays"></div>
+                <div class="dp-foot">
+                  <button type="button" id="dpToday">今天</button>
+                </div>
+              </div>
+            </div>
           </label>
-          <label>提前提醒（天）
-            <input id="fRemind" type="number" min="0" max="365" value="7" />
+          <label>提醒规则
+            <div class="rules" id="ruleChips"></div>
+            <div class="rule-add">
+              <input id="fRuleDay" type="number" min="0" max="365" placeholder="提前 N 天，0 = 当天" />
+              <button type="button" class="btn ghost" id="btnRuleAdd">添加</button>
+              <button type="button" class="btn ghost" id="btnRulePreset">预设 7/3/1/当天</button>
+            </div>
+          </label>
+          <label>续订周期
+            <!-- 自绘下拉：替代原生 select（弹层样式不可控）；值仍存隐藏 input，提交逻辑不变 -->
+            <input id="fCycle" type="hidden" value="0" />
+            <div class="combo" id="cycleCombo">
+              <button type="button" class="combo-btn" id="cycleBtn">不自动续订</button>
+              <div class="combo-panel" id="cyclePanel" hidden></div>
+            </div>
           </label>
           <label>备注
             <textarea id="fNote" rows="3" maxlength="200" placeholder="可选，例如：自动续费，记得取消"></textarea>
@@ -73,6 +114,25 @@
             <button type="submit" class="btn primary">保存</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 分类管理弹窗 -->
+    <div class="modal" id="catModal" hidden>
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>分类管理</h2>
+          <button class="icon-btn" id="catModalClose">✕</button>
+        </div>
+        <div class="cat-body">
+          <p class="cat-tip">改色立即生效；改名会同步更新使用该分类的事件；删除在用分类时，相关事件会归为「其他」。</p>
+          <div id="catRows"></div>
+          <div class="cat-add">
+            <input type="color" id="newCatColor" value="#8a8f98" title="选择颜色" />
+            <input type="text" id="newCatName" maxlength="12" placeholder="输入新分类名称" />
+            <button type="button" class="btn ghost" id="btnCatAdd">＋ 添加</button>
+          </div>
+        </div>
       </div>
     </div>
 
