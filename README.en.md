@@ -88,12 +88,21 @@
 
 ### Prebuilt packages (recommended)
 
+Grab the installer for your platform from the [Releases](../../releases) page:
+
 | Platform | File | Notes |
 | --- | --- | --- |
-| macOS (Apple Silicon) | `如期而至.app.zip` | Unzip, then double-click the `.app` |
-| Windows | `如期而至_x.y.z_x64_en-US.msi` / `*.exe` | Double-click to install |
+| macOS (Apple silicon, M1 and up) | `*_aarch64.dmg` | Open the dmg, drag 如期而至 into Applications |
+| macOS (Intel) | `*_x64.dmg` | Same as above |
+| Windows 10 / 11 | `*_x64-setup.exe` | NSIS installer, double-click to install |
+| Windows 10 / 11 | `*_x64_en-US.msi` | WiX package — pick either one |
 
-> Unsigned builds are blocked on first launch: on macOS right-click → Open and confirm; on Windows click "More info → Run anyway".
+> The builds are **not code-signed**, so your OS blocks the first launch. The download is not corrupt:
+>
+> - **macOS** — if it says the app cannot be opened because the developer cannot be verified, or that it is damaged:
+>   in Finder → Applications, **right-click 如期而至 → Open** and confirm. If it is still blocked, run
+>   `xattr -dr com.apple.quarantine "/Applications/如期而至.app"` in Terminal.
+> - **Windows** — on the blue "Windows protected your PC" screen, click "More info" → "Run anyway".
 
 ### Build from source
 

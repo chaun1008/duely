@@ -320,6 +320,10 @@
 
     <div id="toast" class="toast" hidden></div>
 
-    <script src="app.js"></script>
+    <!-- 必须带 type="module"：vite build 只处理 module 脚本，普通 <script src> 既不打包也不拷贝，
+         会导致 dist/ 里没有 app.js 而这里仍引用它 —— 打包后的应用打开是空壳（实测 /app.js 404）。
+         代价只是脚本变成延迟执行（DOM 已就绪，且 app.js 全在一个 "use strict" IIFE 里，无严格模式风险），
+         而 window.__TAURI__ 由 Tauri 在页面脚本前注入，延迟执行只会更稳。 -->
+    <script type="module" src="app.js"></script>
   </body>
 </html>

@@ -51,3 +51,9 @@ __pycache__/
 !docs/screenshots/
 !docs/screenshots/*.png
 
+# 全局 gitignore 里有 `.github`（整个目录被排除），同样要**先放行目录再放行文件**，
+# 否则发布流水线 .github/workflows/release.yml 不会入库、推 tag 也不会触发构建。
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+

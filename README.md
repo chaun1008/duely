@@ -88,12 +88,20 @@
 
 ### 预编译包（推荐）
 
+到 [Releases](https://github.com/chaun1008/duely/releases) 页面下载对应平台的安装包：
+
 | 平台 | 文件 | 说明 |
 | --- | --- | --- |
-| macOS (Apple Silicon) | `如期而至.app.zip` | 解压后双击 `.app` 打开 |
-| Windows | `如期而至_x.y.z_x64_en-US.msi` / `*.exe` | 双击安装 |
+| macOS（Apple 芯片，M1 及以上） | `*_aarch64.dmg` | 打开 dmg，把「如期而至」拖进「应用程序」 |
+| macOS（Intel 芯片） | `*_x64.dmg` | 同上 |
+| Windows 10 / 11 | `*_x64-setup.exe` | NSIS 安装器，双击安装 |
+| Windows 10 / 11 | `*_x64_en-US.msi` | WiX 安装包，与上面二选一即可 |
 
-> 未签名时首次打开会被系统拦截：macOS 右键「打开」并确认；Windows 点「更多信息 → 仍要运行」。
+> 安装包**未做代码签名**，首次打开会被系统拦一次，这不是文件损坏：
+>
+> - **macOS** 提示「无法打开…无法验证开发者」或「已损坏」时：在「访达 → 应用程序」里**右键点「如期而至」→「打开」**，
+>   再确认一次；若仍被拦，在终端执行 `xattr -dr com.apple.quarantine "/Applications/如期而至.app"`
+> - **Windows** 出现蓝色「Windows 已保护你的电脑」时：点「更多信息」→「仍要运行」
 
 ### 本地构建
 

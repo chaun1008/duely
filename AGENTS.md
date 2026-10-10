@@ -50,6 +50,23 @@
 - **推送 tag（`git push --tags`）与在 GitHub 上建 Release 属于对外发布动作，先取得用户同意**；
   本地 `git tag` 不算发布。
 
+### 发布流水线（自动化）
+
+`.github/workflows/release.yml`：推 `v*` tag 即自动构建**并把安装包上传到对应 Release**，
+不要再在本地手工打包发布。
+
+- 三个 job：macOS arm64 / macOS x64 / Windows x64。**Tauri 不支持交叉编译** ——
+  Windows 的 `.msi` / `.exe` 只能在 Windows 上构建，所以出双平台包必须有 CI。
+- Release 正文由流水线统一生成（下载对照表 + 未签名放行说明）；逐版本的详细变更仍写在 `CHANGELOG.md`。
+- 补传安装包：在 Actions 里手动触发该 workflow，`tag` 填要挂载的 tag 名。
+- ⚠️ **`src/index.html` 里 `app.js` 的 `type="module"` 不许去掉**：`vite build` 只处理 module 脚本，
+  普通 `<script src>` 既不打包也不拷贝 → 产物里没有 app.js 而 index.html 仍引用它，
+  **打包出来的应用打开是空壳**（`/app.js` 404，dev 模式下看不出来）。
+- 打包链路自检：`npm run build` 能在
+  `src-tauri/target/release/bundle/` 下产出 `.app` / `.dmg`。
+  注意 **dmg 那一步要挂载磁盘映像，沙箱里会被拦**（`bundle_dmg.sh` 失败、报 `/Volumes/...` 拒绝），
+  需在沙箱外跑。
+
 ## 开发环境
 
 - Node.js 需要 **20.19+ / 22.12+**（Vite 8 的要求）。
