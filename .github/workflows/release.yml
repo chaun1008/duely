@@ -103,9 +103,11 @@ jobs:
             | --- | --- |
             | Mac（Apple 芯片，M1 及以上） | `*_aarch64.dmg` |
             | Mac（Intel 芯片） | `*_x64.dmg` |
-            | Windows 10 / 11 | `*_x64-setup.exe`（NSIS 安装器，推荐）或 `*_x64_en-US.msi` |
+            | Windows 10 / 11 | `*_x64-setup.exe`（NSIS 安装器，推荐）或 `*_x64.msi`（WiX 安装包） |
 
             不确定 Mac 是哪种芯片？点左上角苹果图标 →「关于本机」，看「芯片」一行是 Apple 还是 Intel。
+
+            > 附件里还有两个 `*.app.tar.gz`，那是应用自动更新用的归档，**普通安装不需要它**，下 dmg 就行。
 
             ## 首次打开会被系统拦一下（安装包未做代码签名）
 
