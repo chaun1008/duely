@@ -1,0 +1,122 @@
+# 发布流水线：推 tag 时自动构建 macOS / Windows 安装包并挂到对应的 GitHub Release。
+#
+# 为什么需要它：Tauri 不支持交叉编译 —— Windows 的 .msi / .exe 只能在 Windows 上构建，
+# macOS 的 .dmg 只能在 macOS 上构建。CI 里各用对应平台的 runner，一次推 tag 就出全套。
+#
+# 触发：推 v* tag（正式发版）或手动指定 tag 重跑（补传安装包时用）。
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建并挂载安装包的 tag（如 v0.2.1）'
+        required: true
+        type: string
+
+# 建 Release、传 assets 都要写权限
+permissions:
+  contents: write
+
+# 同一个 tag 同时只跑一条流水线，避免重复构建 / 并发创建 Release
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      # 一个平台失败不影响其它平台继续出包（谁成功谁先传，方便排障）
+      fail-fast: false
+      matrix:
+        include:
+          # Apple 芯片（M1 及以上）
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          # Intel 芯片
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+          # Windows x64：bundle.targets="all" → 出 .msi（WiX）与 -setup.exe（NSIS）两种
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          # Vite 8 要求 Node 20.19+ / 22.12+，本地开发也是 22.x
+          node-version: '22'
+          cache: npm
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # 两个 macOS target 只在 macOS runner 上装，Windows 传空串跳过
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: 缓存 Rust 依赖
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      # 构建 + 建 Release + 上传安装包。tauri build 会先跑 beforeBuildCommand（npm run build:vite），
+      # 所以不必单独 build 前端。
+      - name: 构建并发布
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 推 tag 触发时用 tag 名；手动触发时用输入的 tag。
+          # 注意：不要把这个表达式直接写进 with 里被单引号包住 ——
+          # YAML 单引号标量中 ' 是转义符（须写 ''），内层的 'workflow_dispatch' 会把标量提前闭合导致解析失败。
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        with:
+          tagName: ${{ env.RELEASE_TAG }}
+          # 三个 job 并发创建同一个 Release 会撞车，靠重试兜住：谁先成功谁建，其余的改成「找到后传 assets」
+          retryAttempts: 3
+          releaseName: 如期而至 Duely ${{ env.RELEASE_TAG }}
+          releaseDraft: false
+          prerelease: false
+          # Release 正文由流水线统一生成（下面这段对所有版本一致）。
+          # 每个版本的详细变更看仓库里的 CHANGELOG.md。
+          releaseBody: |
+            ## 下载哪个
+
+            | 你的设备 | 下载 |
+            | --- | --- |
+            | Mac（Apple 芯片，M1 及以上） | `*_aarch64.dmg` |
+            | Mac（Intel 芯片） | `*_x64.dmg` |
+            | Windows 10 / 11 | `*_x64-setup.exe`（NSIS 安装器，推荐）或 `*_x64_en-US.msi` |
+
+            不确定 Mac 是哪种芯片？点左上角苹果图标 →「关于本机」，看「芯片」一行是 Apple 还是 Intel。
+
+            ## 首次打开会被系统拦一下（安装包未做代码签名）
+
+            安装包没有购买代码签名证书，所以系统会先拦一次。这不是文件损坏，按下面步骤放行即可：
+
+            **macOS** —— 提示「无法打开，因为 Apple 无法检查是否包含恶意软件」或「已损坏」时：
+
+            1. 打开「访达 → 应用程序」，**右键点击「如期而至」→ 选择「打开」**，再在弹窗里点一次「打开」；
+            2. 如果仍被拦，打开「终端」执行下面这行，然后重新打开：
+
+               ```bash
+               xattr -dr com.apple.quarantine "/Applications/如期而至.app"
+               ```
+
+            **Windows** —— 出现蓝色「Windows 已保护你的电脑」时：点「**更多信息**」→「**仍要运行**」。
+
+            > 只出现一次，之后正常双击即可。
+
+            ## 数据存在哪
+
+            所有数据都在你本机（`~/Library/Application Support/com.ruqierzhi/`，Windows 为 `%APPDATA%\com.ruqierzhi\`），
+            不上传任何服务器。卸载前想留个备份，可在应用「设置 → 数据」里导出。
+
+            完整变更见仓库里的 [CHANGELOG.md](https://github.com/chaun1008/duely/blob/main/CHANGELOG.md)。
