@@ -1,6 +1,6 @@
 [package]
 name = "Duely"
-version = "0.1.0"
+version = "0.2.0"
 description = "Duely（如期而至）- 到期时间提醒助手"
 authors = ["Duely Contributors"]
 edition = "2021"

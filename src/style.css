@@ -324,6 +324,24 @@ body {
 /* 工具栏自绘下拉容器：给最小宽度，弹出的面板不至于过窄 */
 .toolbar .combo { min-width: 128px; }
 
+/* 工具栏里的方形图标按钮（刷新）：与其它控件同高，图标走 currentColor */
+.btn-icon {
+  flex: 0 0 auto;
+  width: var(--ctl-h); height: var(--ctl-h);
+  display: inline-grid; place-items: center;
+  padding: 0;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.06s;
+}
+.btn-icon:hover { color: var(--text); border-color: #444852; }
+[data-theme="light"] .btn-icon:hover { border-color: #c9ccd4; }
+.btn-icon:active { transform: translateY(1px); }
+.btn-icon svg { width: 16px; height: 16px; }
+/* 点一下转一圈，给「刷新」一个即时反馈 */
+.btn-icon.spin svg { animation: icon-spin 0.6s ease; }
+@keyframes icon-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 /* 工具栏的两个筛选下拉：把「文字 + 三角」当成一个整体水平居中，两者只留 7px。
    原来文字左对齐（左内边距 12px）而三角钉死在右侧（距右沿 8–18px），在 128px 宽的按钮里
    中间空出 38px（实测：文字右沿 x=77 → 三角左沿 x=115），看起来文字和箭头被拆成两半。

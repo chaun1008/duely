@@ -1,6 +1,6 @@
 {
   "name": "duely",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Duely（如期而至）- 到期时间提醒助手（会员/保险/合同等），跨平台桌面应用",
   "license": "MIT",

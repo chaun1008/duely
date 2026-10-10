@@ -38,6 +38,7 @@
 - 📊 **Stat cards are filters**: the three cards on top — Total / Due soon / Overdue — filter the list when clicked, click again to clear
 - 📅 **Status rules**: disabled > overdue > due soon (0 ≤ days left ≤ largest reminder lead) > OK; the list is sorted by due date ascending
 - 🧭 **A list you can scan**: category chip, title + summary, date + days left and actions each sit in a fixed column and line up across rows; a **cycle progress bar** in the middle shows how far the current period has run — it follows the renewal cycle when there is one (and resets on Renew), otherwise it counts from the day you added the reminder. Grey normally, amber when due soon, full red when overdue
+- 🔄 **One-click refresh**: reloads the local data and recomputes days-left against today's date — handy after editing the data files by hand, or when the app has been running across midnight
 
 **Reminders**
 

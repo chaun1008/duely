@@ -59,7 +59,7 @@
       progress_title: '本期已过 {0}%',
       tag_off: '已停用',
       btn_edit: '编辑', btn_clone: '克隆', btn_disable: '停用', btn_enable: '启用',
-      btn_del: '删除', btn_renew: '续订',
+      btn_del: '删除', btn_renew: '续订', btn_refresh: '刷新',
       clone_suffix: ' 副本',
       confirm_del_event: '确定删除「{0}」？\n\n会先移入废纸篓，之后可以恢复。',
       confirm_import: '导入会用备份文件覆盖当前全部事件，确定继续？',
@@ -67,7 +67,7 @@
       confirm_del_cat: '确定删除分类「{0}」？',
       err_op: '操作失败：{0}', err_days: '请输入 0~365 之间的天数',
       err_rules: '至少保留一条提醒规则', err_title_due: '请填写标题与到期日',
-      saved: '已保存', deleted: '已删除', cloned: '已克隆',
+      saved: '已保存', refreshed: '已刷新', deleted: '已删除', cloned: '已克隆',
       msg_disabled: '已停用，不再提醒', msg_enabled: '已启用', renewed: '已续订至 {0}',
       color_updated: '颜色已更新', cat_name_empty: '分类名称不能为空',
       cat_exists: '已存在同名分类「{0}」', renamed: '已重命名为「{0}」，已同步 {1} 个事件',
@@ -147,7 +147,7 @@
       progress_title: '{0}% of this cycle',
       tag_off: 'Disabled',
       btn_edit: 'Edit', btn_clone: 'Clone', btn_disable: 'Disable', btn_enable: 'Enable',
-      btn_del: 'Delete', btn_renew: 'Renew',
+      btn_del: 'Delete', btn_renew: 'Renew', btn_refresh: 'Refresh',
       clone_suffix: ' (copy)',
       confirm_del_event: 'Delete "{0}"?\n\nIt moves to Trash first and can be restored.',
       confirm_import: 'Import will overwrite all current events. Continue?',
@@ -155,7 +155,7 @@
       confirm_del_cat: 'Delete category "{0}"?',
       err_op: 'Failed: {0}', err_days: 'Enter a number between 0 and 365',
       err_rules: 'Keep at least one reminder rule', err_title_due: 'Title and due date are required',
-      saved: 'Saved', deleted: 'Deleted', cloned: 'Cloned',
+      saved: 'Saved', refreshed: 'Refreshed', deleted: 'Deleted', cloned: 'Cloned',
       msg_disabled: 'Disabled, no more reminders', msg_enabled: 'Enabled', renewed: 'Renewed until {0}',
       color_updated: 'Color updated', cat_name_empty: 'Category name cannot be empty',
       cat_exists: 'Category "{0}" already exists', renamed: 'Renamed to "{0}", synced {1} events',
@@ -1222,6 +1222,8 @@
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+    // 悬停提示（title）也走 i18n：目前是工具栏的刷新按钮
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.dataset.i18nTitle); });
     document.querySelectorAll(".nav-item").forEach((it) => { it.dataset.label = t("nav_" + it.dataset.nav); });
     buildCyclePanel();
     buildStatusPanel();
@@ -1390,6 +1392,16 @@
     window.addEventListener("scroll", syncStuck, { passive: true });
     syncStuck();
   }
+
+  // 刷新：重新走一遍 boot()（读 settings/categories/events + 重渲染），
+  // 用于外部改了数据文件、或挂着跨天想让剩余天数按新的一天重算
+  $("btnRefresh").addEventListener("click", async () => {
+    const b = $("btnRefresh");
+    b.classList.add("spin");                     // 点一下转一圈，给个即时反馈
+    setTimeout(() => b.classList.remove("spin"), 600);
+    await boot();
+    toast(t("refreshed"));
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
