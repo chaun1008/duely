@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "如期而至",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "com.ruqierzhi",
   "build": {
     "frontendDist": "../dist",
@@ -39,7 +39,12 @@
     ],
     "category": "Utility",
     "shortDescription": "Duely（如期而至）- 到期时间提醒助手",
-    "longDescription": "如期而至帮你管理会员、保险、合同、证件、账单、订阅等一切会到期的事件，并在到期前按时弹出系统级通知提醒，关掉窗口也不漏接。"
+    "longDescription": "如期而至帮你管理会员、保险、合同、证件、账单、订阅等一切会到期的事件，并在到期前按时弹出系统级通知提醒，关掉窗口也不漏接。",
+    "windows": {
+      "wix": {
+        "language": "zh-CN"
+      }
+    }
   },
   "plugins": {}
 }

@@ -61,6 +61,14 @@
   Windows 的 `.msi` / `.exe` 只能在 Windows 上构建，所以出双平台包必须有 CI。
 - Release 正文由流水线统一生成（下载对照表 + 未签名放行说明）；逐版本的详细变更仍写在 `CHANGELOG.md`。
 - 补传安装包：在 Actions 里手动触发该 workflow，`tag` 填要挂载的 tag 名。
+- ⛔ **必须把 matrix 里的 `args` 传进 action**（`args: ${{ matrix.args }}`）。漏了的话 `--target` 完全不生效：
+  两个 macOS job 都按 runner 原生架构构建（`macos-latest` 现在是 arm64），产出两个同名 aarch64 dmg，
+  后传的覆盖先传的 → **Intel dmg 永远拿不到**。（首次跑真实踩到，Release 上只剩 aarch64。）
+- ⛔ **`productName` 是中文时，MSI 必须把 WiX 语言设成 `zh-CN`**（已写入 `tauri.conf.json` 的
+  `bundle.windows.wix.language`）。WiX 默认 `en-US` 走 codepage 1252，装不下中文字符 → `light.exe` 失败；
+  而 `targets: "all"` 是**先 msi 后 nsis**，msi 一挂就连 NSIS 的 `.exe` 一起中断 → Windows 一个包都出不来。
+- **附件名用 `releaseAssetNamePattern: 'Duely_[version]_[arch][setup].[ext]'`**：GitHub 会把附件名里的
+  非 ASCII 字符直接抹掉，中文 productName 会变成 `_0.2.1_aarch64.dmg` 这种认不出的名字。
 - ⚠️ **`src/index.html` 里 `app.js` 的 `type="module"` 不许去掉**：`vite build` 只处理 module 脚本，
   普通 `<script src>` 既不打包也不拷贝 → 产物里没有 app.js 而 index.html 仍引用它，
   **打包出来的应用打开是空壳**（`/app.js` 404，dev 模式下看不出来）。

@@ -9,42 +9,47 @@
 
 ## [未发布]
 
-### 新增
+_（暂无）_
 
-- 首页自动刷新：切回首页、窗口重新获得焦点 / 从后台切回前台、以及本地日期跨天时，
-  自动重读本地数据并按当前时间重算剩余天数。此前数据只在启动时读一次，程序常驻托盘
-  挂一夜后「剩 N 天」会停在旧日期
-- 发布流水线 `.github/workflows/release.yml`：推 `v*` tag（或手动指定 tag）时，
-  在 macOS（Apple 芯片 / Intel）与 Windows 上分别构建安装包并挂到对应的 GitHub Release
+## [0.2.2] - 2026-10-10
 
-### 修复
-
-- 左侧导航的悬停提示被「顶栏吸顶」遮挡：提示是 `.nav-item::after`，被困在导航自己的
-  层叠上下文里，而吸顶块 `z-index: 20`、导航是 `auto`。导航提到 40 —— 高于吸顶栏(20)
-  与下拉面板(30)，低于弹窗(50)与 toast(60)
-
-## [0.2.1] - 2026-10-10
-
-第一个提供现成安装包的版本。此前只能自己编译 —— 仓库里没有任何打包流水线，
+第一个把 macOS 与 Windows 安装包都提供齐全的版本。此前只能自己编译 —— 仓库里没有任何打包流水线，
 Release 页面只有源码，没有可下载的安装包。
 
 ### 新增
 
 - **提供 macOS 与 Windows 安装包**：在 [Releases](https://github.com/chaun1008/duely/releases) 页面下载。
   macOS 分 Apple 芯片（`*_aarch64.dmg`）与 Intel 芯片（`*_x64.dmg`）；
-  Windows 提供 NSIS 安装器（`*_x64-setup.exe`）与 WiX 安装包（`*_x64_en-US.msi`）两种
-- **发布流水线**：推 `v*` tag 即自动构建并上传安装包到对应 Release，不再需要手工打包
+  Windows 提供 NSIS 安装器（`*_x64-setup.exe`）与 WiX 安装包（`*_x64.msi`）两种
+- **发布流水线** `.github/workflows/release.yml`：推 `v*` tag（或手动指定 tag）时，
+  在 macOS（Apple 芯片 / Intel）与 Windows 上分别构建安装包并挂到对应的 GitHub Release，
+  不再需要手工打包
+- **首页自动刷新**：切回首页、窗口重新获得焦点 / 从后台切回前台、以及本地日期跨天时，
+  自动重读本地数据并按当前时间重算剩余天数。此前数据只在启动时读一次，程序常驻托盘
+  挂一夜后「剩 N 天」会停在旧日期
 
 ### 修复
 
 - **打包后的应用打开是空白**：`index.html` 用的是普通 `<script src="app.js">`，
   `vite build` 对这类脚本只警告、既不打包也不拷贝，于是产物里没有 `app.js` 而 `index.html` 仍在引用它。
   改成 `type="module"` 后正常打包（开发模式下看不出来，只有打包才暴露）
+- **Windows 安装包生不出来**：应用名是中文，而 MSI 打包默认按 en-US（代码页 1252）处理，装不下中文，
+  打包器在链接阶段报错中断；又因为构建顺序是「先 MSI 后 NSIS」，MSI 一失败连 `.exe` 也没生成。
+  现改为按中文（zh-CN / 代码页 936）打包
+- **Intel 芯片的 Mac 安装包拿不到**：流水线没把「目标架构」参数传给打包工具，
+  两个 macOS 任务都按构建机自身架构（arm64）打包，产出的同名文件互相覆盖，最后只剩一个
+- **安装包文件名残缺**：GitHub 会丢弃文件名里的非 ASCII 字符，中文应用名被抹成
+  `_aarch64.dmg` 这种认不出的样子。现统一命名成 `Duely_0.2.2_aarch64.dmg` 这样
+- **左侧导航的悬停提示被「顶栏吸顶」遮挡**：提示是 `.nav-item::after`，被困在导航自己的
+  层叠上下文里，而吸顶块 `z-index: 20`、导航是 `auto`。导航提到 40 —— 高于吸顶栏(20)
+  与下拉面板(30)，低于弹窗(50)与 toast(60)
 
 ### 内部
 
 - `.gitignore` 放行 `.github/` —— 本机全局规则里有 `.github`，不显式放行流水线文件不会被 git 跟踪
 - `AGENTS.md` 补充发布流水线说明
+- `AGENTS.md` 把发布流水线的三个坑写成红线：必须把目标架构参数传进打包工具、
+  中文应用名必须配 zh-CN 打包、附件名要显式指定（改流水线前必读）
 
 ## [0.2.0] - 2026-10-10
 
@@ -159,7 +164,8 @@ Release 页面只有源码，没有可下载的安装包。
   反序列化一旦失败会返回空列表、紧接着就被写回去，等于清空用户数据
 - `.gitignore` 放行被用户全局规则排除的 `*.md` / `*.png` / `docs/`
 
-[未发布]: https://github.com/chaun1008/duely/compare/v0.2.1...HEAD
-[0.2.1]: https://github.com/chaun1008/duely/compare/v0.2.0...v0.2.1
+[未发布]: https://github.com/chaun1008/duely/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/chaun1008/duely/compare/v0.2.0...v0.2.2
+
 [0.2.0]: https://github.com/chaun1008/duely/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/chaun1008/duely/releases/tag/v0.1.0

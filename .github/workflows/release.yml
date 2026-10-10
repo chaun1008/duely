@@ -81,6 +81,16 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           # 三个 job 并发创建同一个 Release 会撞车，靠重试兜住：谁先成功谁建，其余的改成「找到后传 assets」
           retryAttempts: 3
+          # ⚠️ 必须把 matrix 里的 args 传进来！漏了的话 --target 根本不生效：
+          # 两个 macOS job 都按 runner 原生架构（macos-latest 现在是 arm64）构建，
+          # 产出两个同名 aarch64 dmg，后传的覆盖先传的，Intel dmg 永远拿不到。
+          # （2026-10-10 首次跑就踩到了，Release 上只有 aarch64 一个附件。）
+          args: ${{ matrix.args }}
+          # 附件名统一成 ASCII：productName 是中文（如期而至），GitHub 会把附件名里的非 ASCII
+          # 字符直接抹掉，变成 `_0.2.1_aarch64.dmg` 这种看不出是什么的名字。
+          # 用这个 pattern 后形如：Duely_0.2.1_aarch64.dmg / Duely_0.2.1_x64.dmg /
+          # Duely_0.2.1_x64-setup.exe / Duely_0.2.1_x64.msi
+          releaseAssetNamePattern: 'Duely_[version]_[arch][setup].[ext]'
           releaseName: 如期而至 Duely ${{ env.RELEASE_TAG }}
           releaseDraft: false
           prerelease: false
