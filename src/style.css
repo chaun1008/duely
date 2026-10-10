@@ -144,6 +144,10 @@ body {
   top: 0;
   height: 100vh;
   box-sizing: border-box;
+  /* 导航要压住吸顶顶栏（.sticky-head 是 20）：悬停提示是 .nav-item::after，
+     被困在导航自己的层叠上下文里，导航不上浮就会被顶栏盖掉半截。
+     取 40：高于吸顶顶栏(20)与下拉面板(30)，低于弹窗(50)、toast(60) */
+  z-index: 40;
 }
 .nav-item {
   position: relative; /* tooltip 定位基准 */

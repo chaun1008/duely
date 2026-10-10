@@ -1298,6 +1298,8 @@
     $("viewTrash").hidden = name !== "trash";
     $("viewSettings").hidden = name !== "settings";
     document.querySelector(".app").classList.toggle("is-panel", name !== "events");
+    // 切回首页时重读一遍：外部改过数据文件、或从分类/设置页回来都能看到最新数据
+    if (name === "events") refreshData();
   }
 
   // 设置页的左栏：点一项只显示右侧对应分组（分组靠 hidden 显隐）
@@ -1558,14 +1560,51 @@
     } catch (e) {
       // 读取失败（如旧版本后端无此命令）时静默兜底，用预设分类
     }
+    await refreshData(true);   // 启动时强制读一次（不受下面的节流影响）
+  }
+
+  // ---------- 自动刷新 ----------
+  // 数据只在启动时读一次，之前一直挂着的窗口会停在旧数据上（尤其是「剩 N 天」跨天不更新）。
+  // 下面三个时机自动重读 + 重渲染：
+  //   ① 切回首页；② 窗口重新获得焦点 / 从后台切回（早上打开电脑就是这个场景）；③ 本地日期跨天
+  let lastRefreshAt = 0;
+  async function refreshData(force) {
+    const now = Date.now();
+    // focus 与 visibilitychange 常常同时触发，1.5s 内合并成一次；force 供启动时使用
+    if (!force && now - lastRefreshAt < 1500) return;
+    lastRefreshAt = now;
+    try {
+      const saved = await call("get_categories");
+      if (Array.isArray(saved) && saved.length > 0) categories = saved;
+    } catch (e) {
+      // 读不到就沿用内存里的分类（旧版本后端无此命令时也一样）
+    }
     try {
       events = await call("get_events");
     } catch (e) {
       events = [];
     }
-    fillCategoryOptions();
-    render();
+    render();   // 内部会顺带刷新分类下拉与状态面板
   }
+
+  // 本地日期（按设置里的时区）：跨天时「剩 N 天」必须重算
+  function dayKey() {
+    const d = tzToday();
+    return d.y + "-" + d.m + "-" + d.d;
+  }
+  let lastDay = dayKey();
+  setInterval(() => {
+    const d = dayKey();
+    if (d !== lastDay) {
+      lastDay = d;
+      refreshData(true);            // 跨天：强制刷一次
+    }
+  }, 60 * 1000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshData();   // 从后台切回前台
+  });
+  window.addEventListener("focus", () => refreshData());
 
   // 开发环境自动刷新由 Vite 提供（改 src/ 文件即整页 reload），无需自绘 livereload。
   // 发布后 webview 走 tauri:// 协议加载打包产物，不存在刷新问题。
